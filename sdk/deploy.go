@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/casper-ecosystem/casper-golang-sdk/keypair/secp256k1"
 	"math/big"
 	"strconv"
 	"time"
@@ -963,13 +964,11 @@ func buildTransfer(amount *big.Int, target *keypair.PublicKey, sourcePurse strin
 		return nil
 	}
 
-	var accountHex string
-
+	var publicKey string
 	if target.Tag == keypair.KeyTagEd25519 {
-		accountHex = ed25519.AccountHash(target.PubKeyData)
+		publicKey = ed25519.AccountHex(target.PubKeyData)
 	} else {
-		// FIXME: implement secp256k1 module
-		return nil
+		publicKey = secp256k1.AccountHex(target.PubKeyData)
 	}
 
 	idValue := Value{
@@ -1012,8 +1011,8 @@ func buildTransfer(amount *big.Int, target *keypair.PublicKey, sourcePurse strin
 			StringBytes: hex.EncodeToString(amountBytes),
 		},
 		"target": {
-			Tag:         types.CLTypeByteArray,
-			StringBytes: accountHex,
+			Tag:         types.CLTypePublicKey,
+			StringBytes: publicKey,
 		},
 		"id": idValue,
 	}, argsOrder)
