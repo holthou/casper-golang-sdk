@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"encoding/hex"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
@@ -18,11 +19,40 @@ func TestRpcClient_GetLatestBlock(t *testing.T) {
 }
 
 func TestRpcClient_GetDeploy(t *testing.T) {
-	hash := "1dfdf144eb0422eae3076cd8a17e55089010a133c6555c881ac0b9e2714a1605"
-	_, err := client.GetDeploy(hash)
+	//hash := "1dfdf144eb0422eae3076cd8a17e55089010a133c6555c881ac0b9e2714a1605"
+	hash := "107b9d1405b1eb2778da6cbb0ecf09cd1026c9f7e13c6e92906ab4d6082cfcd1"
+	result, err := client.GetDeploy(hash)
 
 	if err != nil {
 		t.Errorf("can't get deploy info")
+	}
+
+	for _, test := range result.Deploy.Session.Transfer.Args {
+		if len(test) != 2 {
+			continue
+		}
+
+		b, ok := test[1].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		switch test[0] {
+		case "amount":
+			a, ok := b["parsed"]
+			if ok {
+				fmt.Println(a)
+			}
+		case "target":
+			if b["cl_type"] != "PublicKey" {
+				continue
+			}
+			a, ok := b["parsed"]
+			if ok {
+				fmt.Println(a)
+			}
+		}
+
 	}
 }
 

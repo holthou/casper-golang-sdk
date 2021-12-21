@@ -157,7 +157,7 @@ func (c *RpcClient) GetBlockByHash(hash string) (BlockResponse, error) {
 	return result.Block, nil
 }
 
-func (c *RpcClient) GetLatestBlockTransfers() ([]TransferResponse, error) {
+func (c *RpcClient) GetLatestBlockTransfers() (*transferResult, error) {
 	resp, err := c.rpcCall("chain_get_block_transfers", nil)
 	if err != nil {
 		return nil, err
@@ -169,10 +169,10 @@ func (c *RpcClient) GetLatestBlockTransfers() ([]TransferResponse, error) {
 		return nil, fmt.Errorf("failed to get result: %w", err)
 	}
 
-	return result.Transfers, nil
+	return &result, nil
 }
 
-func (c *RpcClient) GetBlockTransfersByHeight(height uint64) ([]TransferResponse, error) {
+func (c *RpcClient) GetBlockTransfersByHeight(height uint64) (*transferResult, error) {
 	resp, err := c.rpcCall("chain_get_block_transfers",
 		blockParams{blockIdentifier{
 			Height: height,
@@ -187,10 +187,10 @@ func (c *RpcClient) GetBlockTransfersByHeight(height uint64) ([]TransferResponse
 		return nil, fmt.Errorf("failed to get result: %w", err)
 	}
 
-	return result.Transfers, nil
+	return &result, nil
 }
 
-func (c *RpcClient) GetBlockTransfersByHash(blockHash string) ([]TransferResponse, error) {
+func (c *RpcClient) GetBlockTransfersByHash(blockHash string) (*transferResult, error) {
 	resp, err := c.rpcCall("chain_get_block_transfers",
 		blockParams{blockIdentifier{
 			Hash: blockHash,
@@ -205,7 +205,7 @@ func (c *RpcClient) GetBlockTransfersByHash(blockHash string) ([]TransferRespons
 		return nil, fmt.Errorf("failed to get result: %w", err)
 	}
 
-	return result.Transfers, nil
+	return &result, nil
 }
 
 func (c *RpcClient) GetValidator() (ValidatorPesponse, error) {
@@ -348,6 +348,7 @@ type RpcError struct {
 
 type transferResult struct {
 	Transfers []TransferResponse `json:"transfers"`
+	BlockHash string             `json:"block_hash"`
 }
 
 type TransferResponse struct {
@@ -404,6 +405,7 @@ type JsonDeploy struct {
 	Hash      string           `json:"hash"`
 	Header    JsonDeployHeader `json:"header"`
 	Approvals []JsonApproval   `json:"approvals"`
+	Session   Session          `json:"session"`
 }
 
 type JsonPutDeployRes struct {
@@ -431,13 +433,15 @@ type JsonExecutionResult struct {
 }
 
 type ExecutionResult struct {
-	Success      SuccessExecutionResult `json:"success"`
-	ErrorMessage *string                `json:"error_message,omitempty"`
+	Success      *SuccessExecutionResult `json:"success,omitempty"` //交易成功时的返回信息
+	ErrorMessage *string                 `json:"error_message,omitempty"`
+	Failure      *SuccessExecutionResult `json:"Failure,omitempty"` //交易失败时的繁华信息
 }
 
 type SuccessExecutionResult struct {
-	Transfers []string `json:"transfers"`
-	Cost      string   `json:"cost"`
+	Transfers    []string `json:"transfers"`
+	Cost         string   `json:"cost"`
+	ErrorMessage string   `json:"error_message"`
 }
 
 type storedValueResult struct {
@@ -538,6 +542,8 @@ type validatorResult struct {
 type StatusResult struct {
 	LastAddedBlock BlockResponse `json:"last_added_block"`
 	BuildVersion   string        `json:"build_version"`
+	ApiVersion     string        `json:"api_version"`
+	ChainspecName  string        `json:"chainspec_name"`
 }
 
 type Peer struct {
@@ -551,4 +557,10 @@ type PeerResult struct {
 
 type StateRootHashResult struct {
 	StateRootHash string `json:"state_root_hash"`
+}
+
+type Session struct {
+	Transfer struct {
+		Args [][]interface{} `json:"args"`
+	} `json:"Transfer"`
 }
