@@ -4,11 +4,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"io/ioutil"
 	"math/big"
 	"testing"
 )
 
-var client = NewRpcClient("http://3.136.227.9:7777/rpc")
+//var client = NewRpcClient("http://3.136.227.9:7777/rpc")
+var client = NewRpcClient("https://node-clarity-testnet.make.services/rpc")
 
 func TestRpcClient_GetLatestBlock(t *testing.T) {
 	_, err := client.GetLatestBlock()
@@ -178,5 +180,49 @@ func TestRpcClient_PutDeploy(t *testing.T) {
 		return
 	}
 
+	assert.Equal(t, hex.EncodeToString(deploy.Hash), result.Hash)
+}
+
+//make sure your account has balance
+func TestRpcClient_delegate(t *testing.T) {
+	//delegate file
+	modulePath := "../keypair/test_account_keys/contract/delegate.wasm"
+	module, _ := ioutil.ReadFile(modulePath)
+	validator := "0109b48a169e6163078a07b6248f330133236c6e390fe915813c187c3f268c213e"
+
+	deploy := NewDelegate(*source, validator, big.NewInt(500000000000), big.NewInt(3000000000), "casper-test", module)
+
+	assert.True(t, deploy.ValidateDeploy())
+	deploy.SignDeploy(sourceKeyPair)
+
+	result, err := client.PutDeploy(*deploy)
+
+	if !assert.NoError(t, err) {
+		t.Errorf("error : %v", err)
+		return
+	}
+
+	assert.Equal(t, hex.EncodeToString(deploy.Hash), result.Hash)
+}
+
+func TestRpcClient_undelegate(t *testing.T) {
+	//undelegate file
+	modulePath := "../keypair/test_account_keys/contract/undelegate.wasm"
+	module, _ := ioutil.ReadFile(modulePath)
+	validator := "0109b48a169e6163078a07b6248f330133236c6e390fe915813c187c3f268c213e"
+
+	deploy := NewDelegate(*source, validator, big.NewInt(500000000000), big.NewInt(1000000000), "casper-test", module)
+
+	assert.True(t, deploy.ValidateDeploy())
+	deploy.SignDeploy(sourceKeyPair)
+
+	result, err := client.PutDeploy(*deploy)
+
+	if !assert.NoError(t, err) {
+		t.Errorf("error : %v", err)
+		return
+	}
+
+	fmt.Println(result.Hash)
 	assert.Equal(t, hex.EncodeToString(deploy.Hash), result.Hash)
 }
