@@ -230,6 +230,14 @@ func NewTransferToUniqAddress(source keypair.PublicKey, target UniqAddress, amou
 	return MakeDeploy(deployParams, payment, session)
 }
 
+func NewDelegate(source keypair.PublicKey, validator string, amount *big.Int, paymentAmount *big.Int, chainName string, moduleBytes []byte) *Deploy {
+	deployParams := NewDeployParams(source, chainName, nil, 0)
+	payment := StandardPayment(paymentAmount)
+	session := buildStack(amount, &source, validator, moduleBytes)
+
+	return MakeDeploy(deployParams, payment, session)
+}
+
 func SerializeBody(payment *ExecutableDeployItem, session *ExecutableDeployItem) []byte {
 	return append(payment.ToBytes(), session.ToBytes()...)
 }
@@ -1028,6 +1036,41 @@ func buildTransfer(amount *big.Int, target *keypair.PublicKey, sourcePurse strin
 			Args: *args,
 		},
 	}
+}
+
+//构建抵押交易和解抵押交易
+func buildStack(amount *big.Int, delegate *keypair.PublicKey, validator string, moduleBytes []byte) *ExecutableDeployItem {
+	amountBytes, err := serialization.Marshal(serialization.U512{Int: *amount})
+	if err != nil {
+		return nil
+	}
+
+	var publicKey string
+	if delegate.Tag == keypair.KeyTagEd25519 {
+		publicKey = ed25519.AccountHex(delegate.PubKeyData)
+	} else {
+		publicKey = secp256k1.AccountHex(delegate.PubKeyData)
+	}
+
+	// set args order
+	argsOrder := append(make([]string, 0), "amount", "delegator", "validator")
+
+	args := NewRunTimeArgs(map[string]Value{
+		"amount": {
+			Tag:         types.CLTypeU512,
+			StringBytes: hex.EncodeToString(amountBytes),
+		},
+		"delegator": {
+			Tag:         types.CLTypePublicKey,
+			StringBytes: publicKey,
+		},
+		"validator": {
+			Tag:         types.CLTypePublicKey,
+			StringBytes: validator,
+		},
+	}, argsOrder)
+
+	return NewModuleBytes(moduleBytes, *args)
 }
 
 func (t Transfer) ToBytes() []byte {
