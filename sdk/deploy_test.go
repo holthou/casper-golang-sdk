@@ -3,6 +3,7 @@ package sdk
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"strconv"
 	"testing"
@@ -26,6 +27,8 @@ func init() {
 		Tag:        keypair.KeyTagEd25519,
 		PubKeyData: decodedSource,
 	}
+
+	fmt.Println(ed25519.AccountHex(decodedSource))
 
 	decodedDest, _ := hex.DecodeString("272a2fe949347aa893fdcbb99bfeb4c57e348c5359a45363514c4e15364e5136")
 

@@ -3,6 +3,7 @@ package sdk
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/casper-ecosystem/casper-golang-sdk/keypair/ed25519"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"math/big"
@@ -148,11 +149,11 @@ func TestRpcClient_GetValidator(t *testing.T) {
 }
 
 func TestRpcClient_GetStatus(t *testing.T) {
-	_, err := client.GetStatus()
-
+	inf, err := client.GetStatus()
 	if err != nil {
 		t.Errorf("can't get status")
 	}
+	fmt.Println(inf)
 }
 
 func TestRpcClient_GetPeers(t *testing.T) {
@@ -185,6 +186,7 @@ func TestRpcClient_PutDeploy(t *testing.T) {
 
 //make sure your account has balance
 func TestRpcClient_delegate(t *testing.T) {
+	fmt.Println(ed25519.AccountHex(source.PubKeyData))
 	//delegate file
 	modulePath := "../keypair/test_account_keys/contract/delegate.wasm"
 	module, _ := ioutil.ReadFile(modulePath)
