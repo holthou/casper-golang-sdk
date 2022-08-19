@@ -148,11 +148,11 @@ func TestRpcClient_GetValidator(t *testing.T) {
 }
 
 func TestRpcClient_GetStatus(t *testing.T) {
-	_, err := client.GetStatus()
-
+	inf, err := client.GetStatus()
 	if err != nil {
 		t.Errorf("can't get status")
 	}
+	fmt.Println(inf)
 }
 
 func TestRpcClient_GetPeers(t *testing.T) {

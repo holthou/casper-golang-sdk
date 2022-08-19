@@ -425,6 +425,15 @@ type BlockResponse struct {
 	Proofs []Proof     `json:"proofs"`
 }
 
+type BlockInfo struct {
+	Hash          string    `json:"hash"`
+	Timestamp     time.Time `json:"timestamp"`
+	EraId         int       `json:"era_id"`
+	Height        int       `json:"height"`
+	StateRootHash string    `json:"state_root_hash"`
+	Creator       string    `json:"creator"`
+}
+
 type BlockHeader struct {
 	ParentHash      string    `json:"parent_hash"`
 	StateRootHash   string    `json:"state_root_hash"`
@@ -589,10 +598,10 @@ type ValidatorPesponse struct {
 }
 
 type StatusResult struct {
-	LastAddedBlock BlockResponse `json:"last_added_block"`
-	BuildVersion   string        `json:"build_version"`
-	ApiVersion     string        `json:"api_version"`
-	ChainspecName  string        `json:"chainspec_name"`
+	LastAddedBlock BlockInfo `json:"last_added_block_info"`
+	BuildVersion   string    `json:"build_version"`
+	ApiVersion     string    `json:"api_version"`
+	ChainspecName  string    `json:"chainspec_name"`
 }
 
 type Peer struct {
