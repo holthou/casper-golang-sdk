@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/casper-ecosystem/casper-golang-sdk/bigint"
 	"io/ioutil"
 	"math/big"
 	"net/http"
@@ -64,24 +65,60 @@ func (c *RpcClient) GetStateItem(stateRootHash, key string, path []string) (Stor
 	return result.StoredValue, nil
 }
 
-func (c *RpcClient) GetAccountBalance(stateRootHash, balanceUref string) (big.Int, error) {
+func (c *RpcClient) GetAccountBalance(stateRootHash, balanceUref string) (*big.Int, error) {
 	resp, err := c.rpcCall("state_get_balance", map[string]string{
 		"state_root_hash": stateRootHash,
 		"purse_uref":      balanceUref,
 	})
 	if err != nil {
-		return big.Int{}, err
+		return nil, err
 	}
 
 	var result balanceResponse
 	err = json.Unmarshal(resp.Result, &result)
 	if err != nil {
-		return big.Int{}, fmt.Errorf("failed to get result: %w", err)
+		return nil, fmt.Errorf("failed to get result: %w", err)
 	}
 
-	balance := big.Int{}
+	balance := big.NewInt(0)
 	balance.SetString(result.BalanceValue, 10)
 	return balance, nil
+}
+
+func (c *RpcClient) GetLiquidBalance(publicKey string) (*big.Int, error) {
+	//1 获取 state_root_hash
+	stateRootHash, err := c.GetStateRootHash()
+	if err != nil {
+		return nil, err
+	}
+
+	//2 获取 purse_uref
+	accountInfo, err := c.GetAccountInfo(publicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	//3 获取账户的流动资产
+	return c.GetAccountBalance(stateRootHash.StateRootHash, accountInfo.Account.MainPurse)
+}
+
+func (c *RpcClient) GetStackingBalance(publicKey string) (*big.Int, error) {
+	ValidatorInfo, err := c.GetValidator()
+	if err != nil {
+		return nil, err
+	}
+
+	total := big.NewInt(0)
+	for i := range ValidatorInfo.AuctionState.Bids {
+		delegators := ValidatorInfo.AuctionState.Bids[i].Bid.Delegators
+		for j := range delegators {
+			if delegators[j].PublicKey == publicKey {
+				total = total.Add(total, delegators[j].StakedAmount.Big())
+			}
+		}
+	}
+
+	return total, nil
 }
 
 func (c *RpcClient) GetAccountMainPurseURef(accountHash string) string {
@@ -98,10 +135,10 @@ func (c *RpcClient) GetAccountMainPurseURef(accountHash string) string {
 	return item.Account.MainPurse
 }
 
-func (c *RpcClient) GetAccountBalanceByKeypair(stateRootHash string, key keypair.KeyPair) (big.Int, error) {
+func (c *RpcClient) GetAccountBalanceByKeypair(stateRootHash string, key keypair.KeyPair) (*big.Int, error) {
 	item, err := c.GetStateItem(stateRootHash, key.AccountHash(), []string{})
 	if err != nil {
-		return big.Int{}, err
+		return nil, err
 	}
 	return c.GetAccountBalance(stateRootHash, item.Account.MainPurse)
 }
@@ -214,13 +251,13 @@ func (c *RpcClient) GetValidator() (ValidatorPesponse, error) {
 		return ValidatorPesponse{}, err
 	}
 
-	var result validatorResult
+	var result ValidatorPesponse
 	err = json.Unmarshal(resp.Result, &result)
 	if err != nil {
 		return ValidatorPesponse{}, fmt.Errorf("failed to get result: #{err}")
 	}
 
-	return result.Validator, nil
+	return result, nil
 }
 
 func (c *RpcClient) GetStatus() (StatusResult, error) {
@@ -253,10 +290,8 @@ func (c *RpcClient) GetPeers() (PeerResult, error) {
 	return result, nil
 }
 
-func (c *RpcClient) GetStateRootHash(stateRootHash string) (StateRootHashResult, error) {
-	resp, err := c.rpcCall("chain_get_state_root_hash", map[string]string{
-		"state_root_hash": stateRootHash,
-	})
+func (c *RpcClient) GetStateRootHash() (StateRootHashResult, error) {
+	resp, err := c.rpcCall("chain_get_state_root_hash", nil)
 	if err != nil {
 		return StateRootHashResult{}, err
 	}
@@ -265,6 +300,23 @@ func (c *RpcClient) GetStateRootHash(stateRootHash string) (StateRootHashResult,
 	err = json.Unmarshal(resp.Result, &result)
 	if err != nil {
 		return StateRootHashResult{}, fmt.Errorf("failed to get result: %w", err)
+	}
+
+	return result, nil
+}
+
+func (c *RpcClient) GetAccountInfo(publicKey string) (AccountInfo, error) {
+	resp, err := c.rpcCall("state_get_account_info", map[string]interface{}{
+		"public_key": publicKey,
+	})
+	if err != nil {
+		return AccountInfo{}, err
+	}
+
+	var result AccountInfo
+	err = json.Unmarshal(resp.Result, &result)
+	if err != nil {
+		return AccountInfo{}, fmt.Errorf("failed to get result: %w", err)
 	}
 
 	return result, nil
@@ -528,15 +580,12 @@ type AuctionState struct {
 	StateRootHash string          `json:"state_root_hash"`
 	BlockHeight   uint64          `json:"block_height"`
 	EraValidators []EraValidators `json:"era_validators"`
+	Bids          []BidInfo       `json:"bids"`
 }
 
 type ValidatorPesponse struct {
-	Version      string `json:"jsonrpc"`
-	AuctionState `json:"auction_state"`
-}
-
-type validatorResult struct {
-	Validator ValidatorPesponse `json:"validator"`
+	Version      string       `json:"api_version"`
+	AuctionState AuctionState `json:"auction_state"`
 }
 
 type StatusResult struct {
@@ -563,4 +612,40 @@ type Session struct {
 	Transfer struct {
 		Args [][]interface{} `json:"args"`
 	} `json:"Transfer"`
+}
+
+type AccountInfo struct {
+	ApiVersion string `json:"api_version"`
+	Account    struct {
+		AccountHash    string        `json:"account_hash"`
+		NamedKeys      []interface{} `json:"named_keys"`
+		MainPurse      string        `json:"main_purse"`
+		AssociatedKeys []struct {
+			AccountHash string `json:"account_hash"`
+			Weight      int    `json:"weight"`
+		} `json:"associated_keys"`
+		ActionThresholds struct {
+			Deployment    int `json:"deployment"`
+			KeyManagement int `json:"key_management"`
+		} `json:"action_thresholds"`
+	} `json:"account"`
+	MerkleProof string `json:"merkle_proof"`
+}
+
+type StackInfo struct {
+	PublicKey    string        `json:"public_key"`
+	StakedAmount bigint.BigInt `json:"staked_amount"`
+	BondingPurse string        `json:"bonding_purse"`
+	Delegatee    string        `json:"delegatee"`
+}
+
+type BidInfo struct {
+	PublicKey string `json:"public_key"`
+	Bid       struct {
+		BondingPurse   string        `json:"bonding_purse"`
+		StakedAmount   bigint.BigInt `json:"staked_amount"`
+		DelegationRate int           `json:"delegation_rate"`
+		Delegators     []StackInfo   `json:"delegators"`
+		Inactive       bool          `json:"inactive"`
+	} `json:"bid"`
 }

@@ -13,11 +13,12 @@ import (
 var client = NewRpcClient("https://node-clarity-testnet.make.services/rpc")
 
 func TestRpcClient_GetLatestBlock(t *testing.T) {
-	_, err := client.GetLatestBlock()
+	b, err := client.GetLatestBlock()
 
 	if err != nil {
 		t.Errorf("can't get latest block")
 	}
+	fmt.Println(b)
 }
 
 func TestRpcClient_GetDeploy(t *testing.T) {
@@ -83,8 +84,7 @@ func TestRpcClient_GetAccountBalance(t *testing.T) {
 }
 
 func TestRpcClient_GetAccountBalanceByKeypair(t *testing.T) {
-	stateRootHash := "c0eb76e0c3c7a928a0cb43e82eb4fad683d9ad626bcd3b7835a466c0587b0fff"
-	stateRootHashNew, err := client.GetStateRootHash(stateRootHash)
+	stateRootHashNew, err := client.GetStateRootHash()
 	if err != nil {
 		return
 	}
@@ -225,4 +225,15 @@ func TestRpcClient_undelegate(t *testing.T) {
 
 	fmt.Println(result.Hash)
 	assert.Equal(t, hex.EncodeToString(deploy.Hash), result.Hash)
+}
+
+func TestRpcClient_GetBalance(t *testing.T) {
+	publicKey := "01c68d9b5eed7c7e8e8901fd1c354ab044859f45a579c632c48137b2a7d45fe3c0"
+	result, err := client.GetLiquidBalance(publicKey)
+	assert.NoError(t, err)
+	fmt.Printf("Liquid balance:%s \n", result.String())
+
+	result2, err := client.GetStackingBalance(publicKey)
+	assert.NoError(t, err)
+	fmt.Printf("Staked balance:%s \n", result2.String())
 }
