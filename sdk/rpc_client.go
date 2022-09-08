@@ -112,6 +112,8 @@ func (c *RpcClient) GetLiquidBalance(publicKey string) (*big.Int, error) {
 	return c.GetAccountBalance(stateRootHash.StateRootHash, accountInfo.Account.MainPurse)
 }
 
+var oneThousand = new(big.Int).SetInt64(1000)
+
 func (c *RpcClient) GetStackingBalance(publicKey string) (*big.Int, error) {
 	ValidatorInfo, err := c.GetValidator()
 	if err != nil {
@@ -122,7 +124,7 @@ func (c *RpcClient) GetStackingBalance(publicKey string) (*big.Int, error) {
 	for i := range ValidatorInfo.AuctionState.Bids {
 		delegators := ValidatorInfo.AuctionState.Bids[i].Bid.Delegators
 		for j := range delegators {
-			if delegators[j].PublicKey == publicKey {
+			if delegators[j].PublicKey == publicKey && delegators[j].StakedAmount.Cmp(oneThousand) >= 0 {
 				total = total.Add(total, delegators[j].StakedAmount.Big())
 			}
 		}
