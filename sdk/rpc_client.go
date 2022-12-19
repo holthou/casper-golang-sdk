@@ -107,8 +107,7 @@ func (c *RpcClient) GetLiquidBalance(publicKey string) (*big.Int, error) {
 	if reflect.DeepEqual(accountInfo, AccountInfo{}) {
 		return big.NewInt(0), nil
 	}
-	//time.Sleep(time.Millisecond * 500)
-	time.Sleep(time.Second)
+
 	//3 获取账户的流动资产
 	return c.GetAccountBalance(stateRootHash.StateRootHash, accountInfo.Account.MainPurse)
 }
