@@ -321,7 +321,7 @@ func (c *RpcClient) rpcCall(method string, params interface{}) (RpcResponse, err
 	}
 
 	if rpcResponse.Error != nil {
-		return rpcResponse, fmt.Errorf("rpc call failed, code - %d, message - %s", rpcResponse.Error.Code, rpcResponse.Error.Message)
+		return rpcResponse, fmt.Errorf("rpc call failed %w", rpcResponse.Error)
 	}
 
 	return rpcResponse, nil
@@ -344,6 +344,10 @@ type RpcResponse struct {
 type RpcError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
+}
+
+func (e *RpcError) Error() string {
+	return fmt.Sprintf(" code - %d, message - %s", e.Code, e.Message)
 }
 
 type transferResult struct {
