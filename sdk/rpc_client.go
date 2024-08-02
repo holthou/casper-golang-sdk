@@ -2,9 +2,10 @@ package sdk
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"time"
@@ -15,12 +16,14 @@ import (
 )
 
 type RpcClient struct {
-	endpoint string
+	endpoint      string
+	Authorization string
 }
 
-func NewRpcClient(endpoint string) *RpcClient {
+func NewRpcClient(endpoint, auth string) *RpcClient {
 	return &RpcClient{
-		endpoint: endpoint,
+		endpoint:      endpoint,
+		Authorization: auth,
 	}
 }
 
@@ -289,6 +292,11 @@ func (c *RpcClient) PutDeploy(deploy Deploy) (JsonPutDeployRes, error) {
 }
 
 func (c *RpcClient) rpcCall(method string, params interface{}) (RpcResponse, error) {
+	const (
+		jsonTypeHeader    = "application/json"
+		contentTypeHeader = "Content-Type"
+	)
+
 	body, err := json.Marshal(RpcRequest{
 		Version: "2.0",
 		Method:  method,
@@ -299,13 +307,22 @@ func (c *RpcClient) rpcCall(method string, params interface{}) (RpcResponse, err
 		return RpcResponse{}, errors.Wrap(err, "failed to marshal json")
 	}
 
-	resp, err := http.Post(c.endpoint, "application/json", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(context.TODO(), http.MethodPost, c.endpoint, bytes.NewReader(body))
+	if err != nil {
+		return RpcResponse{}, fmt.Errorf("create requrest: %w", err)
+	}
+
+	req.Header.Set(contentTypeHeader, jsonTypeHeader)
+	req.Header.Set("Accept", jsonTypeHeader)
+	req.Header.Set("Authorization", c.Authorization)
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return RpcResponse{}, fmt.Errorf("failed to make request: %w", err)
 	}
-
 	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
+
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return RpcResponse{}, fmt.Errorf("failed to get response body: %w", err)
 	}
@@ -326,6 +343,46 @@ func (c *RpcClient) rpcCall(method string, params interface{}) (RpcResponse, err
 
 	return rpcResponse, nil
 }
+
+//
+//func (c *RpcClient) rpcCall(method string, params interface{}) (RpcResponse, error) {
+//	body, err := json.Marshal(RpcRequest{
+//		Version: "2.0",
+//		Method:  method,
+//		Params:  params,
+//	})
+//
+//	if err != nil {
+//		return RpcResponse{}, errors.Wrap(err, "failed to marshal json")
+//	}
+//
+//	resp, err := http.Post(c.endpoint, "application/json", bytes.NewReader(body))
+//	if err != nil {
+//		return RpcResponse{}, fmt.Errorf("failed to make request: %w", err)
+//	}
+//
+//	defer resp.Body.Close()
+//	b, err := ioutil.ReadAll(resp.Body)
+//	if err != nil {
+//		return RpcResponse{}, fmt.Errorf("failed to get response body: %w", err)
+//	}
+//
+//	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+//		return RpcResponse{}, fmt.Errorf("request failed, status code - %d, response - %s", resp.StatusCode, string(b))
+//	}
+//
+//	var rpcResponse RpcResponse
+//	err = json.Unmarshal(b, &rpcResponse)
+//	if err != nil {
+//		return RpcResponse{}, fmt.Errorf("failed to parse response body: %w", err)
+//	}
+//
+//	if rpcResponse.Error != nil {
+//		return rpcResponse, fmt.Errorf("rpc call failed %w", rpcResponse.Error)
+//	}
+//
+//	return rpcResponse, nil
+//}
 
 type RpcRequest struct {
 	Version string      `json:"jsonrpc"`
